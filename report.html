@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TDC Room Booking — Reports</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            background: #f0f2f7;
+            color: #1a1a2e;
+        }
+
+        /* ── Header ── */
+        header {
+            background: linear-gradient(135deg, #1a1a4e 0%, #2d2d7a 100%);
+            color: white;
+            padding: 0 28px;
+            display: flex;
+            align-items: center;
+            height: 64px;
+            gap: 20px;
+            box-shadow: 0 2px 12px rgba(26,26,78,0.3);
+        }
+
+        .header-logo {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            opacity: 0.7;
+            padding-right: 20px;
+            border-right: 1px solid rgba(255,255,255,0.2);
+        }
+
+        header h1 {
+            font-size: 17px;
+            font-weight: 600;
+            flex: 1;
+        }
+
+        .btn-nav {
+            background: rgba(255,255,255,0.12);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 7px 16px;
+            cursor: pointer;
+            border-radius: 7px;
+            font-size: 13px;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            text-decoration: none;
+            transition: background 0.15s;
+        }
+
+        .btn-nav:hover { background: rgba(255,255,255,0.22); }
+
+        /* ── Filters ── */
+        .filters {
+            background: white;
+            padding: 14px 28px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            border-bottom: 1px solid #e5e7ef;
+            flex-wrap: wrap;
+        }
+
+        .filters label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #6b7280;
+        }
+
+        .filters input[type="date"] {
+            padding: 7px 12px;
+            border: 1.5px solid #e5e7ef;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: 'Inter', sans-serif;
+            color: #1a1a2e;
+            background: #fafbff;
+        }
+
+        .filters input[type="date"]:focus {
+            outline: none;
+            border-color: #2d2d7a;
+        }
+
+        .btn-run {
+            padding: 8px 20px;
+            background: linear-gradient(135deg, #1a1a4e, #2d2d7a);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 2px 8px rgba(26,26,78,0.25);
+            transition: all 0.15s;
+        }
+
+        .btn-run:hover {
+            box-shadow: 0 4px 14px rgba(26,26,78,0.35);
+            transform: translateY(-1px);
+        }
+
+        /* ── Summary stats ── */
+        .summary-section {
+            padding: 24px 28px 0;
+        }
+
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+
+        @media (max-width: 800px) {
+            .summary-stats { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px 22px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            border-left: 4px solid transparent;
+        }
+
+        .summary-card:nth-child(1) { border-left-color: #2d2d7a; }
+        .summary-card:nth-child(2) { border-left-color: #16a34a; }
+        .summary-card:nth-child(3) { border-left-color: #ea580c; }
+        .summary-card:nth-child(4) { border-left-color: #0891b2; }
+
+        .summary-icon {
+            font-size: 28px;
+            opacity: 0.8;
+        }
+
+        .summary-text .number {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a1a2e;
+            line-height: 1;
+        }
+
+        .summary-text .label {
+            font-size: 12px;
+            color: #9ca3af;
+            font-weight: 500;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        /* ── Report grid ── */
+        .container {
+            padding: 24px 28px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 22px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .card.full-width { grid-column: 1 / -1; }
+
+        .card h2 {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: #6b7280;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card h2::before {
+            content: '';
+            display: block;
+            width: 3px;
+            height: 14px;
+            background: linear-gradient(#1a1a4e, #2d2d7a);
+            border-radius: 2px;
+        }
+
+        /* ── Room utilisation bars ── */
+        .bar-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 4px 0;
+        }
+
+        .bar-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #374151;
+            width: 66px;
+            flex-shrink: 0;
+        }
+
+        .bar-track {
+            flex: 1;
+            background: #f0f1f5;
+            border-radius: 6px;
+            height: 14px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+        }
+
+        .bar-fill.high { background: linear-gradient(90deg, #16a34a, #22c55e); }
+        .bar-fill.mid  { background: linear-gradient(90deg, #ea580c, #f97316); }
+        .bar-fill.low  { background: linear-gradient(90deg, #2d2d7a, #4a4aaa); }
+
+        .bar-pct {
+            font-size: 12px;
+            font-weight: 600;
+            color: #374151;
+            width: 34px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        /* ── Top courses / layout list ── */
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 9px 0;
+            border-bottom: 1px solid #f0f1f5;
+            font-size: 13px;
+        }
+
+        .stat-row:last-child { border-bottom: none; }
+
+        .stat-label { color: #374151; font-weight: 500; }
+
+        .stat-badge {
+            background: #f0f2f7;
+            color: #1a1a4e;
+            font-weight: 700;
+            font-size: 12px;
+            padding: 3px 10px;
+            border-radius: 20px;
+        }
+
+        .no-data {
+            color: #d1d5db;
+            font-size: 13px;
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 80px;
+            color: #9ca3af;
+            font-size: 14px;
+            grid-column: 1 / -1;
+        }
+
+        .loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e5e7ef;
+            border-top-color: #2d2d7a;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        canvas { max-height: 240px; }
+
+        @media print {
+            header, .filters, #saveBtn { display: none !important; }
+            body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .summary-section { padding: 0 0 16px; }
+            .container { padding: 0; gap: 14px; }
+            .card { box-shadow: none; border: 1px solid #e5e7ef; break-inside: avoid; }
+            .summary-card { box-shadow: none; border: 1px solid #e5e7ef; }
+            .bar-fill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .bar-track { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            @page { margin: 12mm; size: A4 landscape; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <span class="header-logo">TDC</span>
+    <h1>Room Utilisation Reports</h1>
+    <button class="btn-nav" id="saveBtn" onclick="saveReport()" style="display:none;">&#8681; Save as PDF</button>
+    <a href="index.html" class="btn-nav">&#8592; Back to Bookings</a>
+</header>
+
+<div class="filters">
+    <label>From</label>
+    <input type="date" id="dateFrom">
+    <label>To</label>
+    <input type="date" id="dateTo">
+    <button class="btn-run" onclick="runReport()">Run Report</button>
+</div>
+
+<div id="printArea">
+<div class="summary-section">
+    <div class="summary-stats" id="summaryStats"></div>
+</div>
+
+<div class="container" id="reportContainer">
+    <div class="loading">
+        <div class="loading-spinner"></div>
+        Loading report…
+    </div>
+</div>
+</div>
+
+<script>
+    const SUPABASE_URL = 'https://antkrjnqiywoejvuumst.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_nIfGtVomL_NAOLjpsnxPHg_mtZb7tnn';
+
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const today = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+
+    document.getElementById('dateFrom').value = thirtyDaysAgo.toISOString().split('T')[0];
+    document.getElementById('dateTo').value = today.toISOString().split('T')[0];
+
+    let slotChart = null;
+    let dayChart = null;
+    let reportData = null;
+
+    Chart.defaults.font.family = "'Inter', Arial, sans-serif";
+    Chart.defaults.color = '#6b7280';
+
+    async function runReport() {
+        const dateFrom = document.getElementById('dateFrom').value;
+        const dateTo = document.getElementById('dateTo').value;
+
+        if (!dateFrom || !dateTo) { alert('Please select a date range.'); return; }
+
+        document.getElementById('reportContainer').innerHTML =
+            '<div class="loading"><div class="loading-spinner"></div>Loading report…</div>';
+        document.getElementById('summaryStats').innerHTML = '';
+
+        const [{ data: bookings, error: bErr }, { data: rooms, error: rErr }] = await Promise.all([
+            client.from('bookings').select('*').gte('booking_date', dateFrom).lte('booking_date', dateTo),
+            client.from('rooms').select('*').order('id')
+        ]);
+
+        if (bErr || rErr) {
+            document.getElementById('reportContainer').innerHTML =
+                '<div class="loading">Error loading data.</div>';
+            return;
+        }
+
+        // Working days in range
+        let workingDays = 0;
+        const d = new Date(dateFrom + 'T00:00:00');
+        const end = new Date(dateTo + 'T00:00:00');
+        while (d <= end) {
+            const dow = d.getDay();
+            if (dow !== 0 && dow !== 6) workingDays++;
+            d.setDate(d.getDate() + 1);
+        }
+
+        const totalSlots = workingDays * 3;
+        const totalRoomSlots = totalSlots * rooms.length;
+        const totalBookings = bookings.length;
+        const overallUtil = totalRoomSlots > 0 ? Math.round((totalBookings / totalRoomSlots) * 100) : 0;
+        const uniqueCourses = new Set(bookings.map(b => b.course_name)).size;
+        const totalAttendees = bookings.reduce((sum, b) => sum + (b.attendees || 0), 0);
+
+        document.getElementById('summaryStats').innerHTML = `
+            <div class="summary-card">
+                <div class="summary-icon">📋</div>
+                <div class="summary-text">
+                    <div class="number">${totalBookings}</div>
+                    <div class="label">Total Bookings</div>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-icon">📊</div>
+                <div class="summary-text">
+                    <div class="number">${overallUtil}%</div>
+                    <div class="label">Overall Utilisation</div>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-icon">🎓</div>
+                <div class="summary-text">
+                    <div class="number">${uniqueCourses}</div>
+                    <div class="label">Unique Courses</div>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-icon">👥</div>
+                <div class="summary-text">
+                    <div class="number">${totalAttendees.toLocaleString()}</div>
+                    <div class="label">Total Attendees</div>
+                </div>
+            </div>
+        `;
+
+        // Room utilisation
+        const roomUtil = rooms.map(room => {
+            const count = bookings.filter(b => Number(b.room_id) === Number(room.id)).length;
+            const pct = totalSlots > 0 ? Math.round((count / totalSlots) * 100) : 0;
+            return { name: room.room_name, count, pct };
+        }).sort((a, b) => b.pct - a.pct);
+
+        // Slot breakdown
+        const slotCounts = {
+            'AM': bookings.filter(b => b.time_slot === 'AM').length,
+            'PM': bookings.filter(b => b.time_slot === 'PM').length,
+            'Full Day': bookings.filter(b => b.time_slot === 'Full Day').length
+        };
+
+        // Day of week
+        const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        const dayCounts = [0, 0, 0, 0, 0];
+        bookings.forEach(b => {
+            const dow = new Date(b.booking_date + 'T00:00:00').getDay();
+            if (dow >= 1 && dow <= 5) dayCounts[dow - 1]++;
+        });
+
+        // Top courses
+        const courseCounts = {};
+        bookings.forEach(b => {
+            courseCounts[b.course_name] = (courseCounts[b.course_name] || 0) + 1;
+        });
+        const topCourses = Object.entries(courseCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+        // Layout breakdown
+        const layoutCounts = {};
+        bookings.forEach(b => {
+            layoutCounts[b.room_layout] = (layoutCounts[b.room_layout] || 0) + 1;
+        });
+        const layouts = Object.entries(layoutCounts).sort((a, b) => b[1] - a[1]);
+
+        document.getElementById('saveBtn').style.display = 'flex';
+
+        // Store data for PDF generation
+        reportData = {
+            dateFrom, dateTo,
+            totalBookings, overallUtil, uniqueCourses, totalAttendees,
+            roomUtil, slotCounts, dayCounts, dayNames, topCourses, layouts, totalBookings
+        };
+
+        if (slotChart) slotChart.destroy();
+        if (dayChart) dayChart.destroy();
+
+        document.getElementById('reportContainer').innerHTML = `
+            <div class="card full-width">
+                <h2>Room Utilisation</h2>
+                ${roomUtil.length === 0 ? '<div class="no-data">No bookings in this period.</div>' :
+                    roomUtil.map(r => {
+                        const cls = r.pct >= 60 ? 'high' : r.pct >= 30 ? 'mid' : 'low';
+                        return `
+                        <div class="bar-wrap">
+                            <span class="bar-label">${r.name}</span>
+                            <div class="bar-track">
+                                <div class="bar-fill ${cls}" style="width:${r.pct}%"></div>
+                            </div>
+                            <span class="bar-pct">${r.pct}%</span>
+                        </div>`;
+                    }).join('')
+                }
+            </div>
+
+            <div class="card">
+                <h2>Bookings by Time Slot</h2>
+                <canvas id="slotChart"></canvas>
+            </div>
+
+            <div class="card">
+                <h2>Bookings by Day of Week</h2>
+                <canvas id="dayChart"></canvas>
+            </div>
+
+            <div class="card">
+                <h2>Top Courses</h2>
+                ${topCourses.length === 0 ? '<div class="no-data">No bookings in this period.</div>' :
+                    topCourses.map(([name, count]) => `
+                        <div class="stat-row">
+                            <span class="stat-label">${name}</span>
+                            <span class="stat-badge">${count}</span>
+                        </div>`).join('')
+                }
+            </div>
+
+            <div class="card">
+                <h2>Room Layout Breakdown</h2>
+                ${layouts.length === 0 ? '<div class="no-data">No bookings in this period.</div>' :
+                    layouts.map(([name, count]) => {
+                        const pct = Math.round((count / totalBookings) * 100);
+                        return `
+                        <div class="bar-wrap">
+                            <span class="bar-label">${name}</span>
+                            <div class="bar-track">
+                                <div class="bar-fill low" style="width:${pct}%"></div>
+                            </div>
+                            <span class="bar-pct">${pct}%</span>
+                        </div>`;
+                    }).join('')
+                }
+            </div>
+        `;
+
+        slotChart = new Chart(document.getElementById('slotChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['AM', 'PM', 'Full Day'],
+                datasets: [{
+                    data: [slotCounts.AM, slotCounts.PM, slotCounts['Full Day']],
+                    backgroundColor: ['#1a1a4e', '#4a90d9', '#16a34a'],
+                    borderWidth: 0,
+                    hoverOffset: 6
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { padding: 16, font: { size: 12, weight: '500' } }
+                    }
+                },
+                responsive: true,
+                cutout: '65%'
+            }
+        });
+
+        dayChart = new Chart(document.getElementById('dayChart'), {
+            type: 'bar',
+            data: {
+                labels: dayNames,
+                datasets: [{
+                    label: 'Bookings',
+                    data: dayCounts,
+                    backgroundColor: 'rgba(45,45,122,0.85)',
+                    borderRadius: 6,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1, font: { size: 12 } },
+                        grid: { color: '#f0f1f5' }
+                    },
+                    x: {
+                        ticks: { font: { size: 12 } },
+                        grid: { display: false }
+                    }
+                },
+                responsive: true
+            }
+        });
+    }
+
+    function saveReport() {
+        if (!reportData) { alert('Please run the report first.'); return; }
+        window.print();
+    }
+
+    runReport();
+</script>
+
+</body>
+</html>
