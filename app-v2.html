@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TDC Room Booking V2</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- React, ReactDOM, Babel (CDN for single-file approach) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            background: #f0f2f7;
+            color: #1a1a2e;
+        }
+
+        /* ── Header ── */
+        header {
+            background: linear-gradient(135deg, #1a1a4e 0%, #2d2d7a 100%);
+            color: white;
+            padding: 0 28px;
+            display: flex;
+            align-items: center;
+            height: 64px;
+            gap: 12px;
+            box-shadow: 0 2px 12px rgba(26,26,78,0.3);
+        }
+        .header-logo {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            opacity: 0.7;
+            padding-right: 20px;
+            border-right: 1px solid rgba(255,255,255,0.2);
+        }
+        header h1 {
+            font-size: 17px;
+            font-weight: 600;
+            flex: 1;
+            letter-spacing: -0.2px;
+        }
+        .week-nav {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 4px;
+        }
+        .week-nav button {
+            background: transparent;
+            color: white;
+            border: none;
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+        }
+        .week-nav button:hover { background: rgba(255,255,255,0.2); }
+        .week-label {
+            font-size: 13px;
+            font-weight: 500;
+            min-width: 150px;
+            text-align: center;
+            padding: 0 8px;
+        }
+        .btn-nav {
+            background: rgba(255,255,255,0.12);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 7px 16px;
+            cursor: pointer;
+            border-radius: 7px;
+            font-size: 13px;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.15s;
+        }
+        .btn-nav:hover { background: rgba(255,255,255,0.22); }
+        .btn-nav.active {
+            background: rgba(255,255,255,0.25);
+            border-color: rgba(255,255,255,0.55);
+        }
+
+        /* ── Sub-bar ── */
+        .subbar {
+            background: white;
+            padding: 10px 28px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            border-bottom: 1px solid #e5e7ef;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+        .subbar-divider { width: 1px; height: 16px; background: #e5e7ef; }
+
+        /* ── Live badge ── */
+        .live-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #16a34a;
+            background: #dcfce7;
+            border: 1px solid #bbf7d0;
+            padding: 3px 10px;
+            border-radius: 20px;
+            margin-left: auto;
+        }
+        .live-dot {
+            width: 7px;
+            height: 7px;
+            background: #16a34a;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        /* ── Booking Grid ── */
+        .booking-container { padding: 24px 28px; overflow-x: auto; }
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+            min-width: 720px;
+        }
+        thead tr { background: linear-gradient(135deg, #1a1a4e 0%, #2d2d7a 100%); }
+        th {
+            color: white;
+            padding: 14px 10px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+        th.room-header {
+            text-align: left;
+            padding-left: 20px;
+            width: 100px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            font-size: 11px;
+            text-transform: uppercase;
+            opacity: 0.8;
+        }
+        th .day-name { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; }
+        th .day-date { font-size: 15px; font-weight: 600; margin-top: 2px; }
+        tbody tr { transition: background 0.1s; border-bottom: 1px solid #f0f1f5; }
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:nth-child(even) { background: #fafbff; }
+        tbody tr:hover { background: #f0f4ff; }
+        td { padding: 8px 6px; vertical-align: middle; }
+        td.room-name {
+            font-weight: 600;
+            font-size: 13px;
+            padding-left: 20px;
+            color: #1a1a4e;
+            white-space: nowrap;
+            letter-spacing: -0.1px;
+        }
+        td.day-cell { text-align: center; }
+        .slot-buttons { display: flex; gap: 4px; justify-content: center; }
+        .slot-btn {
+            padding: 5px 8px;
+            font-size: 11px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            min-width: 40px;
+            font-family: 'Inter', sans-serif;
+            letter-spacing: 0.2px;
+            transition: transform 0.1s, box-shadow 0.1s, opacity 0.1s;
+        }
+        .slot-btn.available {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+        .slot-btn.available:hover {
+            background: #16a34a;
+            color: white;
+            border-color: #16a34a;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(22,163,74,0.3);
+        }
+        .slot-btn.booked {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+            cursor: pointer;
+        }
+        .slot-btn.booked:hover {
+            background: #dc2626;
+            color: white;
+            border-color: #dc2626;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(220,38,38,0.3);
+        }
+
+        /* ── Modals ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(15,15,35,0.55);
+            backdrop-filter: blur(3px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 0;
+            width: 480px;
+            max-width: 94vw;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .modal-header {
+            background: linear-gradient(135deg, #1a1a4e 0%, #2d2d7a 100%);
+            padding: 20px 24px;
+            color: white;
+        }
+        .modal-header h2 { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+        .modal-header .booking-info { font-size: 13px; opacity: 0.75; font-weight: 400; }
+        .modal-body { padding: 24px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1.5px solid #e5e7ef;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            color: #1a1a2e;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            background: #fafbff;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #2d2d7a;
+            box-shadow: 0 0 0 3px rgba(45,45,122,0.1);
+            background: white;
+        }
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #f0f1f5;
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            background: #fafbff;
+        }
+        .modal-footer-split { justify-content: space-between; }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-ghost { background: white; color: #6b7280; border: 1.5px solid #e5e7ef; }
+        .btn-ghost:hover { background: #f0f1f5; color: #1a1a2e; }
+        .btn-primary {
+            background: linear-gradient(135deg, #1a1a4e, #2d2d7a);
+            color: white;
+            border: none;
+            box-shadow: 0 2px 8px rgba(26,26,78,0.3);
+        }
+        .btn-primary:hover { box-shadow: 0 4px 14px rgba(26,26,78,0.4); transform: translateY(-1px); }
+        .btn-danger {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            color: white;
+            border: none;
+            box-shadow: 0 2px 8px rgba(220,38,38,0.3);
+        }
+        .btn-danger:hover { box-shadow: 0 4px 14px rgba(220,38,38,0.4); transform: translateY(-1px); }
+        .error-msg {
+            color: #dc2626;
+            font-size: 13px;
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: #fee2e2;
+            border-radius: 6px;
+        }
+        .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .detail-item {
+            background: #f8f9ff;
+            border-radius: 8px;
+            padding: 12px 14px;
+            border: 1px solid #e5e7ef;
+        }
+        .detail-item .detail-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #9ca3af;
+            margin-bottom: 4px;
+        }
+        .detail-item .detail-value { font-size: 14px; font-weight: 600; color: #1a1a2e; }
+
+        /* ── Loading ── */
+        .loading {
+            text-align: center;
+            padding: 80px;
+            color: #9ca3af;
+            font-size: 14px;
+        }
+        .loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e5e7ef;
+            border-top-color: #2d2d7a;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            margin: 0 auto 12px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Reports ── */
+        .filters {
+            background: white;
+            padding: 14px 28px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            border-bottom: 1px solid #e5e7ef;
+            flex-wrap: wrap;
+        }
+        .filters label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #6b7280;
+        }
+        .filters input[type="date"] {
+            padding: 7px 12px;
+            border: 1.5px solid #e5e7ef;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: 'Inter', sans-serif;
+            color: #1a1a2e;
+            background: #fafbff;
+        }
+        .filters input[type="date"]:focus { outline: none; border-color: #2d2d7a; }
+        .btn-run {
+            padding: 8px 20px;
+            background: linear-gradient(135deg, #1a1a4e, #2d2d7a);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 2px 8px rgba(26,26,78,0.25);
+            transition: all 0.15s;
+        }
+        .btn-run:hover { box-shadow: 0 4px 14px rgba(26,26,78,0.35); transform: translateY(-1px); }
+        .summary-section { padding: 24px 28px 0; }
+        .summary-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        @media (max-width: 800px) { .summary-stats { grid-template-columns: repeat(2, 1fr); } }
+        .summary-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px 22px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            border-left: 4px solid transparent;
+        }
+        .summary-card:nth-child(1) { border-left-color: #2d2d7a; }
+        .summary-card:nth-child(2) { border-left-color: #16a34a; }
+        .summary-card:nth-child(3) { border-left-color: #ea580c; }
+        .summary-card:nth-child(4) { border-left-color: #0891b2; }
+        .summary-icon { font-size: 28px; opacity: 0.8; }
+        .summary-text .number { font-size: 28px; font-weight: 700; color: #1a1a2e; line-height: 1; }
+        .summary-text .label { font-size: 12px; color: #9ca3af; font-weight: 500; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
+        .report-container { padding: 24px 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 900px) { .report-container { grid-template-columns: 1fr; } }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 22px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .card.full-width { grid-column: 1 / -1; }
+        .card h2 {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: #6b7280;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card h2::before {
+            content: '';
+            display: block;
+            width: 3px;
+            height: 14px;
+            background: linear-gradient(#1a1a4e, #2d2d7a);
+            border-radius: 2px;
+        }
+        .bar-wrap { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+        .bar-label { font-size: 12px; font-weight: 500; color: #374151; width: 66px; flex-shrink: 0; }
+        .bar-track { flex: 1; background: #f0f1f5; border-radius: 6px; height: 14px; overflow: hidden; }
+        .bar-fill { height: 100%; border-radius: 6px; transition: width 0.5s cubic-bezier(0.4,0,0.2,1); }
+        .bar-fill.high { background: linear-gradient(90deg, #16a34a, #22c55e); }
+        .bar-fill.mid  { background: linear-gradient(90deg, #ea580c, #f97316); }
+        .bar-fill.low  { background: linear-gradient(90deg, #2d2d7a, #4a4aaa); }
+        .bar-pct { font-size: 12px; font-weight: 600; color: #374151; width: 34px; text-align: right; flex-shrink: 0; }
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid #f0f1f5; font-size: 13px; }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-label { color: #374151; font-weight: 500; }
+        .stat-badge { background: #f0f2f7; color: #1a1a4e; font-weight: 700; font-size: 12px; padding: 3px 10px; border-radius: 20px; }
+        .no-data { color: #d1d5db; font-size: 13px; text-align: center; padding: 30px 0; }
+        canvas { max-height: 240px; }
+
+        /* ── Print ── */
+        @media print {
+            header, .filters, #saveBtn, .subbar { display: none !important; }
+            body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .summary-section { padding: 0 0 16px; }
+            .report-container { padding: 0; gap: 14px; }
+            .card { box-shadow: none; border: 1px solid #e5e7ef; break-inside: avoid; }
+            .summary-card { box-shadow: none; border: 1px solid #e5e7ef; }
+            @page { margin: 12mm; size: A4 landscape; }
+        }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    /* ─────────────────────────────────────────
+       Supabase client
+    ───────────────────────────────────────── */
+    const SUPABASE_URL = 'https://antkrjnqiywoejvuumst.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_nIfGtVomL_NAOLjpsnxPHg_mtZb7tnn';
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    Chart.defaults.font.family = "'Inter', Arial, sans-serif";
+    Chart.defaults.color = '#6b7280';
+
+    /* ─────────────────────────────────────────
+       Pure helper functions
+    ───────────────────────────────────────── */
+    function getMonday(date) {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        d.setDate(diff);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    }
+
+    function formatDate(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    function formatDisplay(date) {
+        return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    }
+
+    function getDayName(date) {
+        return date.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase();
+    }
+
+    function getWeekDays(weekStart) {
+        return Array.from({ length: 5 }, (_, i) => {
+            const d = new Date(weekStart);
+            d.setDate(d.getDate() + i);
+            return d;
+        });
+    }
+
+    function findBooking(bookings, roomId, date, slot) {
+        const dateStr = formatDate(date);
+        const direct = bookings.find(b =>
+            b.room_id === roomId && b.booking_date === dateStr && b.time_slot === slot
+        );
+        if (direct) return direct;
+        if (slot === 'AM' || slot === 'PM') {
+            return bookings.find(b =>
+                b.room_id === roomId && b.booking_date === dateStr && b.time_slot === 'Full Day'
+            ) || null;
+        }
+        if (slot === 'Full Day') {
+            return bookings.find(b =>
+                b.room_id === roomId && b.booking_date === dateStr &&
+                (b.time_slot === 'AM' || b.time_slot === 'PM')
+            ) || null;
+        }
+        return null;
+    }
+
+    /* ─────────────────────────────────────────
+       Chart component (wraps Chart.js canvas)
+    ───────────────────────────────────────── */
+    function ChartCanvas({ config, id }) {
+        const canvasRef = useRef(null);
+        const chartRef  = useRef(null);
+
+        useEffect(() => {
+            if (!canvasRef.current || !config) return;
+            if (chartRef.current) chartRef.current.destroy();
+            chartRef.current = new Chart(canvasRef.current, config);
+            return () => { if (chartRef.current) chartRef.current.destroy(); };
+        }, [config]);
+
+        return <canvas ref={canvasRef} id={id} />;
+    }
+
+    /* ─────────────────────────────────────────
+       Booking Detail Modal
+    ───────────────────────────────────────── */
+    function DetailModal({ booking, room, onClose, onCancel }) {
+        if (!booking) return null;
+
+        const displayDate = new Date(booking.booking_date + 'T00:00:00').toLocaleDateString('en-GB', {
+            weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
+        });
+
+        return (
+            <div className="modal-overlay active" onClick={e => e.target === e.currentTarget && onClose()}>
+                <div className="modal">
+                    <div className="modal-header">
+                        <h2>Booking Details</h2>
+                        <div className="booking-info">
+                            {room?.room_name} · {booking.time_slot} · {displayDate}
+                        </div>
+                    </div>
+                    <div className="modal-body">
+                        <div className="detail-grid">
+                            <div className="detail-item">
+                                <div className="detail-label">Contact</div>
+                                <div className="detail-value">{booking.contact_name}</div>
+                            </div>
+                            <div className="detail-item">
+                                <div className="detail-label">Course</div>
+                                <div className="detail-value">{booking.course_name}</div>
+                            </div>
+                            <div className="detail-item">
+                                <div className="detail-label">Attendees</div>
+                                <div className="detail-value">{booking.attendees}</div>
+                            </div>
+                            <div className="detail-item">
+                                <div className="detail-label">Layout</div>
+                                <div className="detail-value">{booking.room_layout}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="modal-footer modal-footer-split">
+                        <button className="btn btn-danger" onClick={onCancel}>Cancel Booking</button>
+                        <button className="btn btn-ghost" onClick={onClose}>Close</button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    /* ─────────────────────────────────────────
+       New Booking Modal
+    ───────────────────────────────────────── */
+    function BookingModal({ pending, bookings, onClose, onSaved }) {
+        const [form, setForm] = useState({ contactName: '', courseName: '', attendees: '', roomLayout: 'Classroom' });
+        const [error, setError] = useState('');
+        const [saving, setSaving] = useState(false);
+
+        if (!pending) return null;
+
+        const displayDate = new Date(pending.date + 'T00:00:00').toLocaleDateString('en-GB', {
+            weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
+        });
+
+        const handleSave = async () => {
+            const { contactName, courseName, attendees, roomLayout } = form;
+            if (!contactName.trim() || !courseName.trim() || !attendees || isNaN(parseInt(attendees))) {
+                setError('Please fill in all fields.');
+                return;
+            }
+            const dateObj = new Date(pending.date + 'T00:00:00');
+            if (findBooking(bookings, pending.roomId, dateObj, pending.slot)) {
+                setError('This slot conflicts with an existing booking.');
+                return;
+            }
+            setSaving(true);
+            const { error: dbError } = await db.from('bookings').insert({
+                room_id:      pending.roomId,
+                contact_name: contactName.trim(),
+                course_name:  courseName.trim(),
+                booking_date: pending.date,
+                time_slot:    pending.slot,
+                attendees:    parseInt(attendees),
+                room_layout:  roomLayout
+            });
+            setSaving(false);
+            if (dbError) {
+                setError(dbError.code === '23505'
+                    ? 'This slot has just been booked by someone else. Please choose another.'
+                    : 'Error saving booking. Please try again.');
+                return;
+            }
+            // Real-time subscription will update the grid — no manual reload needed
+            onSaved();
+        };
+
+        return (
+            <div className="modal-overlay active" onClick={e => e.target === e.currentTarget && onClose()}>
+                <div className="modal">
+                    <div className="modal-header">
+                        <h2>Book a Room</h2>
+                        <div className="booking-info">
+                            {pending.roomName} · {pending.slot} · {displayDate}
+                        </div>
+                    </div>
+                    <div className="modal-body">
+                        <div className="form-group">
+                            <label>Contact Name</label>
+                            <input type="text" placeholder="Your name"
+                                value={form.contactName}
+                                onChange={e => setForm(f => ({ ...f, contactName: e.target.value }))} />
+                        </div>
+                        <div className="form-group">
+                            <label>Course Name</label>
+                            <input type="text" placeholder="Course or event name"
+                                value={form.courseName}
+                                onChange={e => setForm(f => ({ ...f, courseName: e.target.value }))} />
+                        </div>
+                        <div className="form-group">
+                            <label>Number of Attendees</label>
+                            <input type="number" placeholder="0" min="1"
+                                value={form.attendees}
+                                onChange={e => setForm(f => ({ ...f, attendees: e.target.value }))} />
+                        </div>
+                        <div className="form-group">
+                            <label>Room Layout</label>
+                            <select value={form.roomLayout}
+                                onChange={e => setForm(f => ({ ...f, roomLayout: e.target.value }))}>
+                                <option>Classroom</option>
+                                <option>Theatre</option>
+                                <option>Boardroom</option>
+                                <option>Cabaret</option>
+                                <option>U-Shape</option>
+                            </select>
+                        </div>
+                        {error && <div className="error-msg">{error}</div>}
+                    </div>
+                    <div className="modal-footer">
+                        <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
+                        <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                            {saving ? 'Saving…' : 'Save Booking'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    /* ─────────────────────────────────────────
+       Booking Grid View
+    ───────────────────────────────────────── */
+    function BookingView() {
+        const [weekStart, setWeekStart]   = useState(() => getMonday(new Date()));
+        const [rooms, setRooms]           = useState([]);
+        const [bookings, setBookings]     = useState([]);
+        const [loading, setLoading]       = useState(true);
+        const [pendingBooking, setPending] = useState(null);
+        const [detailBooking, setDetail]  = useState(null);
+        const [connected, setConnected]   = useState(false);
+
+        const weekDays   = getWeekDays(weekStart);
+        const weekEndStr = formatDate(weekDays[4]);
+        const weekStartStr = formatDate(weekStart);
+
+        // ── Initial data load ──
+        const loadData = useCallback(async (start) => {
+            const ws = start || weekStart;
+            const wd = getWeekDays(ws);
+            const startStr = formatDate(wd[0]);
+            const endStr   = formatDate(wd[4]);
+            setLoading(true);
+            const [{ data: roomData }, { data: bookingData }] = await Promise.all([
+                db.from('rooms').select('*').order('id'),
+                db.from('bookings').select('*').gte('booking_date', startStr).lte('booking_date', endStr)
+            ]);
+            setRooms(roomData || []);
+            setBookings(bookingData || []);
+            setLoading(false);
+        }, [weekStart]);
+
+        useEffect(() => { loadData(); }, [weekStart]);
+
+        // ── Supabase real-time subscription ──
+        // Instead of polling (which causes full re-renders/flashes), we subscribe
+        // to INSERT and DELETE events and surgically update state.
+        useEffect(() => {
+            const channel = db
+                .channel('bookings-realtime')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bookings' },
+                    payload => {
+                        const b = payload.new;
+                        // Only add if it falls in the current visible week
+                        if (b.booking_date >= weekStartStr && b.booking_date <= weekEndStr) {
+                            setBookings(prev => [...prev, b]);
+                        }
+                    }
+                )
+                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'bookings' },
+                    payload => {
+                        setBookings(prev => prev.filter(b => b.id !== payload.old.id));
+                    }
+                )
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings' },
+                    payload => {
+                        setBookings(prev => prev.map(b => b.id === payload.new.id ? payload.new : b));
+                    }
+                )
+                .subscribe(status => {
+                    setConnected(status === 'SUBSCRIBED');
+                });
+
+            return () => { db.removeChannel(channel); };
+        }, [weekStartStr, weekEndStr]);
+
+        const changeWeek = (dir) => {
+            setWeekStart(ws => {
+                const next = new Date(ws);
+                next.setDate(next.getDate() + dir * 7);
+                return next;
+            });
+        };
+
+        const handleCancelBooking = async () => {
+            if (!detailBooking) return;
+            if (!window.confirm('Are you sure you want to cancel this booking?')) return;
+            const { error } = await db.from('bookings').delete().eq('id', detailBooking.id);
+            if (error) { alert('Error cancelling booking.'); return; }
+            setDetail(null);
+            // Real-time DELETE event will update state automatically
+        };
+
+        const weekLabel = `${formatDisplay(weekDays[0])} – ${formatDisplay(weekDays[4])}`;
+
+        return (
+            <>
+                {/* Header week nav — rendered by parent, passed via props */}
+                <div data-week-label={weekLabel} data-change-week="true" />
+
+                <div className="subbar">
+                    <span className="legend-item">
+                        <span className="legend-dot" style={{background:'#dcfce7',border:'1px solid #bbf7d0'}}></span>
+                        <span style={{color:'#166534',fontWeight:500}}>Available</span>
+                    </span>
+                    <span className="legend-item">
+                        <span className="legend-dot" style={{background:'#fee2e2',border:'1px solid #fecaca'}}></span>
+                        <span style={{color:'#991b1b',fontWeight:500}}>Booked</span>
+                    </span>
+                    <div className="subbar-divider"></div>
+                    <span>AM &nbsp;09:00–12:00</span>
+                    <span>PM &nbsp;12:30–17:00</span>
+                    <span>FD &nbsp;Full Day</span>
+                    <div className="subbar-divider"></div>
+                    <span>Click any slot to book or view details</span>
+                    <div className="live-badge" style={{marginLeft:'auto'}}>
+                        <span className="live-dot"></span>
+                        {connected ? 'Live' : 'Connecting…'}
+                    </div>
+                </div>
+
+                <div className="booking-container">
+                    {loading ? (
+                        <div className="loading">
+                            <div className="loading-spinner"></div>
+                            Loading rooms…
+                        </div>
+                    ) : (
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th className="room-header">Room</th>
+                                    {weekDays.map(d => (
+                                        <th key={d.toISOString()}>
+                                            <div className="day-name">{getDayName(d)}</div>
+                                            <div className="day-date">{formatDisplay(d)}</div>
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {rooms.map(room => (
+                                    <tr key={room.id}>
+                                        <td className="room-name">{room.room_name}</td>
+                                        {weekDays.map(day => (
+                                            <td className="day-cell" key={day.toISOString()}>
+                                                <div className="slot-buttons">
+                                                    {['AM', 'PM', 'Full Day'].map(slot => {
+                                                        const booking = findBooking(bookings, room.id, day, slot);
+                                                        const label   = slot === 'Full Day' ? 'FD' : slot;
+                                                        return booking ? (
+                                                            <button
+                                                                key={slot}
+                                                                className="slot-btn booked"
+                                                                title={`${booking.contact_name} — ${booking.course_name}`}
+                                                                onClick={() => setDetail(booking)}
+                                                            >{label}</button>
+                                                        ) : (
+                                                            <button
+                                                                key={slot}
+                                                                className="slot-btn available"
+                                                                onClick={() => setPending({
+                                                                    roomId: room.id,
+                                                                    roomName: room.room_name,
+                                                                    date: formatDate(day),
+                                                                    slot
+                                                                })}
+                                                            >{label}</button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+
+                <BookingModal
+                    pending={pendingBooking}
+                    bookings={bookings}
+                    onClose={() => setPending(null)}
+                    onSaved={() => setPending(null)}
+                />
+                <DetailModal
+                    booking={detailBooking}
+                    room={rooms.find(r => r.id === detailBooking?.room_id)}
+                    onClose={() => setDetail(null)}
+                    onCancel={handleCancelBooking}
+                />
+
+                {/* Expose week nav state to parent via a hidden bridge element */}
+                <WeekNavBridge weekLabel={weekLabel} onChangeWeek={changeWeek} />
+            </>
+        );
+    }
+
+    /* Bridge to expose week navigation to the header */
+    const WeekNavContext = React.createContext(null);
+
+    function WeekNavBridge({ weekLabel, onChangeWeek }) {
+        const ctx = React.useContext(WeekNavContext);
+        useEffect(() => {
+            if (ctx) ctx.set({ weekLabel, onChangeWeek });
+        }, [weekLabel, onChangeWeek]);
+        return null;
+    }
+
+    /* ─────────────────────────────────────────
+       Reports View
+    ───────────────────────────────────────── */
+    function ReportView({ autoRun }) {
+        const today = new Date();
+        const thirtyAgo = new Date();
+        thirtyAgo.setDate(today.getDate() - 30);
+
+        const [dateFrom, setDateFrom] = useState(thirtyAgo.toISOString().split('T')[0]);
+        const [dateTo,   setDateTo]   = useState(today.toISOString().split('T')[0]);
+        const [data,     setData]     = useState(null);
+        const [loading,  setLoading]  = useState(false);
+
+        const slotChartConfig = data ? {
+            type: 'doughnut',
+            data: {
+                labels: ['AM', 'PM', 'Full Day'],
+                datasets: [{
+                    data: [data.slotCounts.AM, data.slotCounts.PM, data.slotCounts['Full Day']],
+                    backgroundColor: ['#1a1a4e', '#4a90d9', '#16a34a'],
+                    borderWidth: 0,
+                    hoverOffset: 6
+                }]
+            },
+            options: {
+                plugins: { legend: { position: 'bottom', labels: { padding: 16, font: { size: 12, weight: '500' } } } },
+                responsive: true,
+                cutout: '65%'
+            }
+        } : null;
+
+        const dayChartConfig = data ? {
+            type: 'bar',
+            data: {
+                labels: data.dayNames,
+                datasets: [{
+                    label: 'Bookings',
+                    data: data.dayCounts,
+                    backgroundColor: 'rgba(45,45,122,0.85)',
+                    borderRadius: 6,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 12 } }, grid: { color: '#f0f1f5' } },
+                    x: { ticks: { font: { size: 12 } }, grid: { display: false } }
+                },
+                responsive: true
+            }
+        } : null;
+
+        const runReport = useCallback(async () => {
+            if (!dateFrom || !dateTo) { alert('Please select a date range.'); return; }
+            setLoading(true);
+            const [{ data: rptBookings }, { data: rptRooms }] = await Promise.all([
+                db.from('bookings').select('*').gte('booking_date', dateFrom).lte('booking_date', dateTo),
+                db.from('rooms').select('*').order('id')
+            ]);
+            setLoading(false);
+
+            const bookings = rptBookings || [];
+            const rooms    = rptRooms    || [];
+
+            let workingDays = 0;
+            const d   = new Date(dateFrom + 'T00:00:00');
+            const end = new Date(dateTo   + 'T00:00:00');
+            while (d <= end) {
+                const dow = d.getDay();
+                if (dow !== 0 && dow !== 6) workingDays++;
+                d.setDate(d.getDate() + 1);
+            }
+
+            const totalSlots     = workingDays * 3;
+            const totalRoomSlots = totalSlots * rooms.length;
+            const totalBookings  = bookings.length;
+            const overallUtil    = totalRoomSlots > 0 ? Math.round((totalBookings / totalRoomSlots) * 100) : 0;
+            const uniqueCourses  = new Set(bookings.map(b => b.course_name)).size;
+            const totalAttendees = bookings.reduce((sum, b) => sum + (b.attendees || 0), 0);
+
+            const roomUtil = rooms.map(room => {
+                const count = bookings.filter(b => Number(b.room_id) === Number(room.id)).length;
+                const pct   = totalSlots > 0 ? Math.round((count / totalSlots) * 100) : 0;
+                return { name: room.room_name, count, pct };
+            }).sort((a, b) => b.pct - a.pct);
+
+            const slotCounts = {
+                'AM':       bookings.filter(b => b.time_slot === 'AM').length,
+                'PM':       bookings.filter(b => b.time_slot === 'PM').length,
+                'Full Day': bookings.filter(b => b.time_slot === 'Full Day').length
+            };
+
+            const dayNames  = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+            const dayCounts = [0, 0, 0, 0, 0];
+            bookings.forEach(b => {
+                const dow = new Date(b.booking_date + 'T00:00:00').getDay();
+                if (dow >= 1 && dow <= 5) dayCounts[dow - 1]++;
+            });
+
+            const courseCounts = {};
+            bookings.forEach(b => { courseCounts[b.course_name] = (courseCounts[b.course_name] || 0) + 1; });
+            const topCourses = Object.entries(courseCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+            const layoutCounts = {};
+            bookings.forEach(b => { layoutCounts[b.room_layout] = (layoutCounts[b.room_layout] || 0) + 1; });
+            const layouts = Object.entries(layoutCounts).sort((a, b) => b[1] - a[1]);
+
+            setData({ totalBookings, overallUtil, uniqueCourses, totalAttendees,
+                      roomUtil, slotCounts, dayCounts, dayNames, topCourses, layouts, totalRoomSlots });
+        }, [dateFrom, dateTo]);
+
+        useEffect(() => { if (autoRun) runReport(); }, [autoRun]);
+
+        return (
+            <>
+                <div className="filters">
+                    <label>From</label>
+                    <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+                    <label>To</label>
+                    <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                    <button className="btn-run" onClick={runReport}>Run Report</button>
+                    {data && (
+                        <button className="btn-run" onClick={() => window.print()}
+                            style={{marginLeft:'auto',background:'linear-gradient(135deg,#374151,#1f2937)'}}>
+                            ⬇ Save as PDF
+                        </button>
+                    )}
+                </div>
+
+                {loading && (
+                    <div className="loading">
+                        <div className="loading-spinner"></div>
+                        Loading report…
+                    </div>
+                )}
+
+                {data && !loading && (
+                    <div id="printArea">
+                        <div className="summary-section">
+                            <div className="summary-stats">
+                                <div className="summary-card">
+                                    <div className="summary-icon">📋</div>
+                                    <div className="summary-text">
+                                        <div className="number">{data.totalBookings}</div>
+                                        <div className="label">Total Bookings</div>
+                                    </div>
+                                </div>
+                                <div className="summary-card">
+                                    <div className="summary-icon">📊</div>
+                                    <div className="summary-text">
+                                        <div className="number">{data.overallUtil}%</div>
+                                        <div className="label">Overall Utilisation</div>
+                                    </div>
+                                </div>
+                                <div className="summary-card">
+                                    <div className="summary-icon">🎓</div>
+                                    <div className="summary-text">
+                                        <div className="number">{data.uniqueCourses}</div>
+                                        <div className="label">Unique Courses</div>
+                                    </div>
+                                </div>
+                                <div className="summary-card">
+                                    <div className="summary-icon">👥</div>
+                                    <div className="summary-text">
+                                        <div className="number">{data.totalAttendees.toLocaleString()}</div>
+                                        <div className="label">Total Attendees</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="report-container">
+                            <div className="card full-width">
+                                <h2>Room Utilisation</h2>
+                                {data.roomUtil.length === 0 ? (
+                                    <div className="no-data">No bookings in this period.</div>
+                                ) : data.roomUtil.map(r => {
+                                    const cls = r.pct >= 60 ? 'high' : r.pct >= 30 ? 'mid' : 'low';
+                                    return (
+                                        <div className="bar-wrap" key={r.name}>
+                                            <span className="bar-label">{r.name}</span>
+                                            <div className="bar-track">
+                                                <div className={`bar-fill ${cls}`} style={{width:`${r.pct}%`}}></div>
+                                            </div>
+                                            <span className="bar-pct">{r.pct}%</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="card">
+                                <h2>Bookings by Time Slot</h2>
+                                <ChartCanvas key={JSON.stringify(data.slotCounts)} config={slotChartConfig} id="slotChart" />
+                            </div>
+
+                            <div className="card">
+                                <h2>Bookings by Day of Week</h2>
+                                <ChartCanvas key={JSON.stringify(data.dayCounts)} config={dayChartConfig} id="dayChart" />
+                            </div>
+
+                            <div className="card">
+                                <h2>Top Courses</h2>
+                                {data.topCourses.length === 0 ? (
+                                    <div className="no-data">No bookings in this period.</div>
+                                ) : data.topCourses.map(([name, count]) => (
+                                    <div className="stat-row" key={name}>
+                                        <span className="stat-label">{name}</span>
+                                        <span className="stat-badge">{count}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="card">
+                                <h2>Room Layout Breakdown</h2>
+                                {data.layouts.length === 0 ? (
+                                    <div className="no-data">No bookings in this period.</div>
+                                ) : data.layouts.map(([name, count]) => {
+                                    const pct = data.totalBookings > 0 ? Math.round((count / data.totalBookings) * 100) : 0;
+                                    return (
+                                        <div className="bar-wrap" key={name}>
+                                            <span className="bar-label">{name}</span>
+                                            <div className="bar-track">
+                                                <div className="bar-fill low" style={{width:`${pct}%`}}></div>
+                                            </div>
+                                            <span className="bar-pct">{pct}%</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </>
+        );
+    }
+
+    /* ─────────────────────────────────────────
+       Root App
+    ───────────────────────────────────────── */
+    function App() {
+        const [view, setView]       = useState('booking');
+        const [reportAutoRun, setReportAutoRun] = useState(false);
+        const [weekNav, setWeekNav] = useState({ weekLabel: '', onChangeWeek: () => {} });
+
+        const switchView = (v) => {
+            setView(v);
+            if (v === 'report' && !reportAutoRun) setReportAutoRun(true);
+        };
+
+        return (
+            <WeekNavContext.Provider value={{ set: setWeekNav }}>
+                <header>
+                    <span className="header-logo">TDC</span>
+                    <h1>{view === 'booking' ? 'Room Booking' : 'Room Utilisation Reports'}</h1>
+
+                    {view === 'booking' && (
+                        <div className="week-nav">
+                            <button onClick={() => weekNav.onChangeWeek(-1)} title="Previous week">←</button>
+                            <span className="week-label">{weekNav.weekLabel}</span>
+                            <button onClick={() => weekNav.onChangeWeek(1)} title="Next week">→</button>
+                        </div>
+                    )}
+
+                    <button className={`btn-nav${view === 'booking' ? ' active' : ''}`}
+                        onClick={() => switchView('booking')}>
+                        📅 Bookings
+                    </button>
+                    <button className={`btn-nav${view === 'report' ? ' active' : ''}`}
+                        onClick={() => switchView('report')}>
+                        🗃 Reports
+                    </button>
+                </header>
+
+                {view === 'booking' && <BookingView />}
+                {view === 'report'  && <ReportView autoRun={reportAutoRun} />}
+            </WeekNavContext.Provider>
+        );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
